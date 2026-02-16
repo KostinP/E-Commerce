@@ -81,6 +81,9 @@ func (sm *SeedManager) Run() error {
 		duration := time.Since(seederStart)
 		sm.logger.Info("Successfully seeded", "type", seeder.Name(), "duration", duration)
 		successCount++
+
+		// Добавить небольшую задержку после каждого успешного сида
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	totalDuration := time.Since(startTime)

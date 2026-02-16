@@ -30,8 +30,8 @@ dev:
 	docker-compose up -d
 	@echo "Development environment started!"
 	@echo "Frontend: http://localhost:3000"
-	@echo "Backend API: http://localhost:5000"
-	@echo "API Docs: http://localhost:5000/docs"
+	@echo "Backend API: http://localhost:5001"
+	@echo "API Docs: http://localhost:5001/docs"
 
 final:
 	@echo "Starting final optimized environment with multi-stage builds..."

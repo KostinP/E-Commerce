@@ -31,8 +31,8 @@ export default function ProductsPage() {
   const fetchData = async () => {
     try {
       const [productsRes, categoriesRes] = await Promise.all([
-        fetch('/api/products'),
-        fetch('/api/categories')
+        fetch('http://localhost:5001/api/products/'),
+        fetch('http://localhost:5001/api/categories/')
       ])
 
       if (productsRes.ok) {

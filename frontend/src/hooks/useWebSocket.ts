@@ -145,7 +145,7 @@ export function useNotifications() {
   }>>([])
 
   const { sendMessage } = useWebSocket({
-    url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:5000/ws',
+    url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:5001/ws',
     onMessage: (message) => {
       if (message.type === 'notification') {
         const notification = {
@@ -204,7 +204,7 @@ export function useNotifications() {
 // Hook for real-time cart updates
 export function useCartWebSocket() {
   const { sendMessage } = useWebSocket({
-    url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:5000/ws',
+    url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:5001/ws',
     onMessage: (message) => {
       if (message.type === 'cart_updated') {
         // Trigger cart refresh
@@ -269,7 +269,7 @@ export function useCartWebSocket() {
 // Hook for real-time product updates
 export function useProductWebSocket() {
   const { sendMessage } = useWebSocket({
-    url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:5000/ws',
+    url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:5001/ws',
     onMessage: (message) => {
       if (message.type === 'product_update') {
         // Trigger product refresh
@@ -342,7 +342,7 @@ export function useProductWebSocket() {
 // Hook for real-time order updates
 export function useOrderWebSocket() {
   const { sendMessage } = useWebSocket({
-    url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:5000/ws',
+    url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:5001/ws',
     onMessage: (message) => {
       if (message.type === 'order_update') {
         // Trigger order refresh
@@ -365,7 +365,7 @@ export function useAnalyticsWebSocket() {
   const [realtimeStats, setRealtimeStats] = useState<any>(null)
 
   useWebSocket({
-    url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:5000/ws',
+    url: process.env.NEXT_PUBLIC_WS_URL || 'ws://localhost:5001/ws',
     onMessage: (message) => {
       if (message.type === 'analytics_update') {
         setAnalytics(message.data.metrics)

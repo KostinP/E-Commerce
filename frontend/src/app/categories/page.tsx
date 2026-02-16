@@ -32,8 +32,8 @@ export default function CategoriesPage() {
   const fetchData = async () => {
     try {
       const [categoriesRes, productsRes] = await Promise.all([
-        fetch('/api/categories'),
-        fetch('/api/products')
+        fetch('http://localhost:5001/api/categories/'),
+        fetch('http://localhost:5001/api/products/')
       ])
 
       if (categoriesRes.ok) {

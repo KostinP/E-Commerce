@@ -1,10 +1,13 @@
 ﻿package middleware
+
 import (
 	"os"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
+
 func CORSMiddleware() gin.HandlerFunc {
 	godotenv.Load()
 	config := cors.DefaultConfig()
@@ -29,6 +32,7 @@ func CORSMiddleware() gin.HandlerFunc {
 	config.ExposeHeaders = []string{"Content-Length"}
 	return cors.New(config)
 }
+
 func SecurityHeadersMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("X-Content-Type-Options", "nosniff")
@@ -37,4 +41,4 @@ func SecurityHeadersMiddleware() gin.HandlerFunc {
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
 		c.Next()
 	}
-}
+}

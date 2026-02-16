@@ -177,7 +177,7 @@ func setDefaults(config *AppConfig) {
 		config.Server.Host = "0.0.0.0"
 	}
 	if config.Server.Port == 0 {
-		config.Server.Port = 5000
+		config.Server.Port = 5001
 	}
 	if config.Server.ReadTimeout == 0 {
 		config.Server.ReadTimeout = 30 * time.Second

@@ -54,7 +54,7 @@ export default function UserDashboard() {
   const fetchUserData = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('/api/user/profile', {
+      const response = await fetch('http://localhost:5001/api/user/profile/', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -65,7 +65,7 @@ export default function UserDashboard() {
         setUser(userData.data)
       }
 
-      const ordersResponse = await fetch('/api/user/orders', {
+      const ordersResponse = await fetch('http://localhost:5001/api/user/orders/', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -76,7 +76,7 @@ export default function UserDashboard() {
         setOrders(ordersData.data || [])
       }
 
-      const wishlistResponse = await fetch('/api/user/wishlist', {
+      const wishlistResponse = await fetch('http://localhost:5001/api/user/wishlist/', {
         headers: {
           'Authorization': `Bearer ${token}`
         }

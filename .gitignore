@@ -2,6 +2,9 @@
 .env.local
 .env.production
 .env.staging
+*.local
+
+output/
 
 logs/
 *.log

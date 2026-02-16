@@ -36,7 +36,52 @@ import (
 )
 
 func main() {
-	godotenv.Load()
+	// Определяем путь к .env файлу
+	envPath := ""
+
+	// Проверяем, где мы находимся
+	if _, err := os.Stat("../.env"); err == nil {
+		// Мы в backend-go, .env в родительской папке
+		envPath = "../.env"
+	} else if _, err := os.Stat(".env"); err == nil {
+		// Мы в корне или .env рядом
+		envPath = ".env"
+	}
+
+	// Определяем, какой .env файл загружать для локальной разработки
+	if os.Getenv("DOCKER_ENV") != "true" {
+		// Пробуем загрузить .env.local
+		localPath := ""
+		if _, err := os.Stat("../.env.local"); err == nil {
+			localPath = "../.env.local"
+		} else if _, err := os.Stat(".env.local"); err == nil {
+			localPath = ".env.local"
+		}
+
+		if localPath != "" {
+			envPath = localPath
+			fmt.Printf("📝 Using local env file: %s\n", localPath)
+		}
+	}
+
+	// Загружаем файл если нашли
+	if envPath != "" {
+		if err := godotenv.Load(envPath); err != nil {
+			log.Printf("Warning: Failed to load %s: %v", envPath, err)
+		} else {
+			fmt.Printf("✅ Loaded env file: %s\n", envPath)
+		}
+	} else {
+		log.Println("Warning: No .env file found")
+	}
+
+	// Отладка
+	fmt.Println("=== ENVIRONMENT VARIABLES ===")
+	fmt.Printf("DB_HOST=%s\n", os.Getenv("DB_HOST"))
+	fmt.Printf("DB_USER=%s\n", os.Getenv("DB_USER"))
+	fmt.Printf("DB_NAME=%s\n", os.Getenv("DB_NAME"))
+	fmt.Printf("DOCKER_ENV=%s\n", os.Getenv("DOCKER_ENV"))
+	fmt.Println("==============================")
 
 	var (
 		mode      = flag.String("mode", "server", "Mode: server, init, seed, admin, generate-images, auto-init")
@@ -143,29 +188,46 @@ func runAdmin(cfg *config.AppConfig) {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 
+	r.Use(func(c *gin.Context) {
+		fmt.Printf("🔍 REQUEST: %s %s from %s\n", c.Request.Method, c.Request.URL.Path, c.ClientIP())
+		fmt.Printf("   Headers: Origin=%s\n", c.Request.Header.Get("Origin"))
+		c.Next()
+		fmt.Printf("   RESPONSE: Status=%d, Headers: Access-Control-Allow-Origin=%s\n",
+			c.Writer.Status(),
+			c.Writer.Header().Get("Access-Control-Allow-Origin"))
+	})
+
+	r.Use(middleware.DebugCORS())
+
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
-	r.Use(corsMiddleware())
-	r.Use(authMiddleware())
+	r.Use(middleware.CORSMiddleware())
 
 	r.Static("/static", "./static")
 	r.LoadHTMLGlob("templates/*")
 
+	// Публичные маршруты (без авторизации)
 	r.GET("/", dashboardHandler)
-	r.GET("/api/stats", statsHandler)
-	r.GET("/api/logs", logsHandler)
-	r.GET("/api/metrics", metricsHandler)
-	r.GET("/api/database", databaseHandler)
-	r.GET("/api/cache", cacheHandler)
-	r.GET("/api/users", usersHandler)
-	r.GET("/api/products", productsHandler)
-	r.GET("/api/orders", ordersHandler)
 	r.GET("/api/health", healthHandler)
 
-	r.POST("/api/seed", seedHandler)
-	r.POST("/api/migrate", migrateHandler)
-	r.POST("/api/cache/clear", clearCacheHandler)
-	r.POST("/api/logs/clear", clearLogsHandler)
+	// Админ API с авторизацией
+	adminApi := r.Group("/api")
+	adminApi.Use(authMiddleware())
+	{
+		adminApi.GET("/stats", statsHandler)
+		adminApi.GET("/logs", logsHandler)
+		adminApi.GET("/metrics", metricsHandler)
+		adminApi.GET("/database", databaseHandler)
+		adminApi.GET("/cache", cacheHandler)
+		adminApi.GET("/users", usersHandler)
+		adminApi.GET("/products", productsHandler)
+		adminApi.GET("/orders", ordersHandler)
+
+		adminApi.POST("/seed", seedHandler)
+		adminApi.POST("/migrate", migrateHandler)
+		adminApi.POST("/cache/clear", clearCacheHandler)
+		adminApi.POST("/logs/clear", clearLogsHandler)
+	}
 
 	r.GET("/ws", websocketHandler)
 
@@ -198,12 +260,24 @@ func runServer(cfg *config.AppConfig) {
 	}
 	r := gin.New()
 	r.Use(gin.Recovery())
-	r.Use(middleware.CORSMiddleware())
-	r.Use(middleware.SecurityHeadersMiddleware())
-	r.Use(middleware.LoggingMiddleware())
-	r.Use(middleware.RequestIDMiddleware())
-	r.Use(middleware.MetricsMiddleware())
-	r.Use(middleware.RateLimitMiddleware(100, time.Minute))
+
+	r.Use(middleware.SimpleCORS())
+	r.Use(gin.Recovery())
+
+	// r.Use(middleware.CORSMiddleware())
+	// r.Use(middleware.SecurityHeadersMiddleware())
+	// r.Use(middleware.LoggingMiddleware())
+	// r.Use(middleware.RequestIDMiddleware())
+	// r.Use(middleware.MetricsMiddleware())
+	// r.Use(middleware.RateLimitMiddleware(100, time.Minute))
+
+	// тестовый middleware для логирования
+	r.Use(func(c *gin.Context) {
+		fmt.Printf("🔍 REQUEST: %s %s\n", c.Request.Method, c.Request.URL.Path)
+		fmt.Printf("   Origin: %s\n", c.Request.Header.Get("Origin"))
+		c.Next()
+		fmt.Printf("   RESPONSE Status: %d\n", c.Writer.Status())
+	})
 
 	r.LoadHTMLGlob("templates/*")
 	db := database.GetDB()
@@ -482,21 +556,6 @@ http_request_duration_seconds %s
 	}
 
 	log.Println("Server exited")
-}
-
-func corsMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Header("Access-Control-Allow-Origin", "*")
-		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
-
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-
-		c.Next()
-	}
 }
 
 func authMiddleware() gin.HandlerFunc {
@@ -1023,11 +1082,13 @@ func getHealthStatus() map[string]interface{} {
 }
 
 func waitForDatabase(cfg *config.AppConfig, timeout time.Duration) error {
+	fmt.Printf("⏳ Waiting for database at %s:%d...\n", cfg.Database.Host, cfg.Database.Port)
 	start := time.Now()
 
 	for time.Since(start) < timeout {
 		if err := database.InitDatabase(); err == nil {
 			database.CloseDatabase()
+			fmt.Println("✅ Database connection successful!")
 			return nil
 		}
 
@@ -1035,15 +1096,27 @@ func waitForDatabase(cfg *config.AppConfig, timeout time.Duration) error {
 		time.Sleep(2 * time.Second)
 	}
 
-	return fmt.Errorf("timeout after %v", timeout)
+	return fmt.Errorf("timeout after %v connecting to %s:%d", timeout, cfg.Database.Host, cfg.Database.Port)
 }
 
 func runAutoInit(cfg *config.AppConfig, waitForDB bool, timeout time.Duration) {
 	fmt.Println("🚀 Auto-initializing E-Commerce Project...")
 	fmt.Println("==========================================")
 
+	// ВАЖНО: Сохраняем оригинальный хост
+	originalHost := cfg.Database.Host
+
+	// Для автоинициализации на хосте используем localhost
+	if cfg.Database.Host == "postgres" {
+		cfg.Database.Host = "localhost"
+		fmt.Println("📝 Using localhost for database connection during auto-init")
+	}
+
 	fmt.Println("\n🔧 Step 1: Initializing database...")
 	runInit(cfg, waitForDB, timeout)
+
+	// Возвращаем оригинальный хост для seed операций
+	cfg.Database.Host = originalHost
 
 	fmt.Println("\n🌱 Step 2: Seeding database with sample data...")
 	runSeed(cfg, "all")
@@ -1054,9 +1127,9 @@ func runAutoInit(cfg *config.AppConfig, waitForDB bool, timeout time.Duration) {
 	fmt.Println("\n🎉 Auto-initialization completed successfully!")
 	fmt.Println("==========================================")
 	fmt.Println("📱 Frontend: http://localhost:3000")
-	fmt.Println("🔧 Backend API: http://localhost:5000")
-	fmt.Println("📊 Admin Panel: http://localhost:5000/admin")
-	fmt.Println("📚 API Docs: http://localhost:5000/docs")
+	fmt.Println("🔧 Backend API: http://localhost:5001")
+	fmt.Println("📊 Admin Panel: http://localhost:5001/admin")
+	fmt.Println("📚 API Docs: http://localhost:5001/docs")
 	fmt.Println("==========================================")
 }
 
