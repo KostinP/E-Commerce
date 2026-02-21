@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
 	"image"
 	"image/color"
 	"image/jpeg"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -188,20 +190,11 @@ func runAdmin(cfg *config.AppConfig) {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 
-	r.Use(func(c *gin.Context) {
-		fmt.Printf("🔍 REQUEST: %s %s from %s\n", c.Request.Method, c.Request.URL.Path, c.ClientIP())
-		fmt.Printf("   Headers: Origin=%s\n", c.Request.Header.Get("Origin"))
-		c.Next()
-		fmt.Printf("   RESPONSE: Status=%d, Headers: Access-Control-Allow-Origin=%s\n",
-			c.Writer.Status(),
-			c.Writer.Header().Get("Access-Control-Allow-Origin"))
-	})
-
-	r.Use(middleware.DebugCORS())
-
-	r.Use(gin.Logger())
+	r.Use(middleware.SimpleCORS())
 	r.Use(gin.Recovery())
-	r.Use(middleware.CORSMiddleware())
+	r.Use(gin.Logger())
+	r.Use(middleware.SecurityHeadersMiddleware())
+	r.Use(middleware.RequestIDMiddleware())
 
 	r.Static("/static", "./static")
 	r.LoadHTMLGlob("templates/*")
@@ -258,26 +251,57 @@ func runServer(cfg *config.AppConfig) {
 	if os.Getenv("GIN_MODE") == "release" {
 		gin.SetMode(gin.ReleaseMode)
 	}
+
+	// Создаем роутер
 	r := gin.New()
-	r.Use(gin.Recovery())
 
-	r.Use(middleware.SimpleCORS())
-	r.Use(gin.Recovery())
+	// Добавляем middleware в правильном порядке - начинаем с самых необходимых
+	r.Use(middleware.SimpleCORS()) // CORS должен быть первым
+	r.Use(gin.Recovery())          // Recovery для обработки паник
 
-	// r.Use(middleware.CORSMiddleware())
-	// r.Use(middleware.SecurityHeadersMiddleware())
-	// r.Use(middleware.LoggingMiddleware())
-	// r.Use(middleware.RequestIDMiddleware())
-	// r.Use(middleware.MetricsMiddleware())
-	// r.Use(middleware.RateLimitMiddleware(100, time.Minute))
+	// Детальное логирование для отладки
+	r.Use(func(c *gin.Context) {
+		fmt.Printf("\n=== ВХОДЯЩИЙ ЗАПРОС ===\n")
+		fmt.Printf("Метод: %s\n", c.Request.Method)
+		fmt.Printf("URL: %s\n", c.Request.URL.Path)
+		fmt.Printf("Origin: %s\n", c.Request.Header.Get("Origin"))
+		fmt.Printf("Content-Type: %s\n", c.Request.Header.Get("Content-Type"))
+		fmt.Printf("Заголовки: %v\n", c.Request.Header)
 
-	// тестовый middleware для логирования
+		// Читаем тело запроса для POST
+		if c.Request.Method == "POST" {
+			body, _ := c.GetRawData()
+			fmt.Printf("Тело запроса: %s\n", string(body))
+			// Важно: восстанавливаем тело для дальнейшего использования
+			c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+		}
+
+		c.Next()
+
+		fmt.Printf("Статус ответа: %d\n", c.Writer.Status())
+		fmt.Printf("=== КОНЕЦ ЗАПРОСА ===\n\n")
+	})
+
+	// Добавляем остальные middleware
+	r.Use(gin.Logger())
+	r.Use(middleware.RequestIDMiddleware())
+	r.Use(middleware.SecurityHeadersMiddleware())
+
+	// Тестовый middleware для логирования всех запросов
 	r.Use(func(c *gin.Context) {
 		fmt.Printf("🔍 REQUEST: %s %s\n", c.Request.Method, c.Request.URL.Path)
-		fmt.Printf("   Origin: %s\n", c.Request.Header.Get("Origin"))
+		fmt.Printf("   Headers: Content-Type=%s, Origin=%s\n",
+			c.Request.Header.Get("Content-Type"),
+			c.Request.Header.Get("Origin"))
 		c.Next()
 		fmt.Printf("   RESPONSE Status: %d\n", c.Writer.Status())
 	})
+
+	// Metrics middleware (опционально, пока закомментировано)
+	// r.Use(middleware.MetricsMiddleware())
+
+	// RateLimit временно отключен для тестирования
+	// r.Use(middleware.RateLimitMiddleware(100, time.Minute))
 
 	r.LoadHTMLGlob("templates/*")
 	db := database.GetDB()

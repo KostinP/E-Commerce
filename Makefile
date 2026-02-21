@@ -41,8 +41,8 @@ final:
 	docker-compose up -d
 	@echo "Final environment started!"
 	@echo "Frontend: http://localhost:3000"
-	@echo "Backend API: http://localhost:5000"
-	@echo "API Docs: http://localhost:5000/docs"
+	@echo "Backend API: http://localhost:5001"
+	@echo "API Docs: http://localhost:5001/docs"
 	@echo "Prometheus: http://localhost:9090"
 	@echo "Grafana: http://localhost:3001 (admin/admin)"
 
@@ -99,7 +99,7 @@ generate-images:
 	@echo "Generating placeholder images for products..."
 	cd backend-go && go run cmd/main.go -mode=generate-images
 	@echo "Placeholder images generated successfully!"
-	@echo "Images are available at: http://localhost:5000/api/uploads/"
+	@echo "Images are available at: http://localhost:5001/api/uploads/"
 
 auto-init:
 	@echo "Auto-initializing E-Commerce project..."
@@ -117,8 +117,8 @@ start-full:
 	cd backend-go && go run cmd/main.go -mode=auto-init -wait
 	@echo "E-Commerce is ready!"
 	@echo "Frontend: http://localhost:3000"
-	@echo "Backend: http://localhost:5000"
-	@echo "Admin: http://localhost:5000/admin"
+	@echo "Backend: http://localhost:5001"
+	@echo "Admin: http://localhost:5001/admin"
 
 test:
 	@echo "Running tests..."
